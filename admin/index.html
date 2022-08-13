@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF-8">
+    <link href="../styles.css" rel="stylesheet">
+    <style>
+        /* latin */
+        @font-face {
+            font-family: Heebo;
+            font-style: normal;
+            font-weight: 200;
+            font-display: swap;
+            src: url("../heebo.ttf") format('truetype');
+        }
+    </style>
+    <title>LabUtils Control Panel</title>
+</head>
+<body>
+    <nav>
+        <div id="navside1"><p id="time">Date/time here</p></div>
+        <div id="navcenter">
+            <p>labutils admin</p>
+            <p style="font-size: calc(0.5vw + 1.25vh);">Section Information Here</p>
+        </div>
+        <div id="navside2" style="justify-content: flex-end;">
+            <div>
+                <span class="switchCylinder" role="img" aria-label="theme_switch" onclick="toggleTheme()">
+                    <span class="switchCircle" id="themeSwitchCircle"></span>
+                </span>
+            </div>
+        </div>
+    </nav>
+    <div class="container" id="topadminpanel">
+        <div class="container adminpanel" style="width: 25%">
+            <div style="width: 100%; display: flex; flex-direction: column; align-items: center; max-height: 50%; overflow-y: auto">
+                <p style="text-align: center; font-size: x-large">Rooms</p>
+                <div class="config" id="roomlist" style="justify-content: center; flex-wrap: wrap">
+                </div>
+            </div>
+            <hr>
+            <div style="width: 100%; display: flex; flex-direction: column; align-items: center">
+                <div class="config" id="options">
+                    <p>Disable room</p>
+                    <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-around;">
+                        <span class="switchCylinder" role="img" aria-label="roomDisabled_switch" onclick="toggleRoomDisabled()">
+                            <span class="switchCircle" id="roomDisabledSwitchCircle"></span>
+                        </span>
+                    </div>
+                </div>
+                <div class="config" id="options">
+                    <p>Permit any student to join queues</p>
+                    <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-around;">
+                        <span class="switchCylinder" role="img" aria-label="anystudent_switch" onclick="toggleAnyStudent()">
+                            <span class="switchCircle" id="anyStudentSwitchCircle"></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <hr>
+            <div class="config">
+                <button class="config_btn" style="width: 100%; height: 100%" onclick="downloadLog()">Download attendance log</button>
+            </div>
+            <div class="config">
+                <button class="config_btn" style="width: 100%; height: 100%" onclick="clearLog()">Clear attendance log</button>
+            </div>
+        </div>
+        <div class="container adminpanel">
+                <p style="text-align: center; font-size: x-large">Attendance Log</p>
+                <table id="attendance" cellspacing="10px" cellpadding="4vh">
+                    <thead>
+                        <tr> <td>Time</td> <td>Student</td> <td>Station</td> <td>Queue</td> <td>🟢 Joined, 🔴 Left</td> </tr>                    </tr>
+                    </thead>
+                    <tbody>
+                        <tr> <td>4/20/2022 00:09:10</td> <td>menon18</td> <td>51</td> <td>checkoff</td> <td>🟢</td> </tr>
+                        <tr> <td>4/20/2022 00:09:10</td> <td>menon18</td> <td>51</td> <td>checkoff</td> <td>🔴</td> </tr>
+                    </tbody>
+                </table>
+        </div>
+    </div>
+    <script>
+        try {
+            window.roomdata = ROOMDATAVALUE;
+        }
+        catch(err) {
+            alert("Valid config data was not sent with this page.  " + 
+                  "This usually indicates an error in the room configuration " +
+                  "JSON files.  Please recheck them.")
+        }
+        async function clearLog() {
+            var r = await fetch(`admin.py?room=${window.currentRoom}&clearlog=true`);
+            var t = await r.text();
+            if (t == "cleared")
+                alert("Log has been cleared.");
+            else
+                alert("An error has occurred.  Script output: " + t);
+        }
+        function applyTime(q, queues) {
+            var list = Array.from(document.querySelector("#" + q).children);
+            queues[q].forEach(a => {
+                var elm = list.filter(e => parseInt(e.children[0].innerHTML) == a[0])[0];
+                var now = Date.now();
+                var then = new Date(parseFloat(a[1]));
+                var minute = parseInt((now - (then*1000)) / (60 * 1000));
+                var max = 5;
+                var maxopacity = 0.7;
+                elm.style["background-color"] = `var(--waiter-bg-${minute <= max ? minute : max})`;
+                elm.children[1].innerHTML = `${minute < 1 ? "&lt;1" : minute} min`;
+            });
+        }
+        function changeRoom(opt=0) { 
+            document.documentElement.setAttribute("roomdisabled", window.roomdata[opt]["disabled"] ? "true" : "false");
+            document.documentElement.setAttribute("anystudent", window.roomdata[opt]["anystudent"] ? "true" : "false");
+            var selected = document.getElementsByClassName(`config_selected`)[0];
+            if (selected) {
+                selected.classList.toggle("config_selected", false);
+                selected.classList.toggle("config_select", true);
+            }
+            window.currentRoom = window.roomdata[opt]["room"];
+            var toselect = document.getElementById(`btn_${window.currentRoom}`);
+            toselect.classList.toggle("config_select", false);
+            toselect.classList.toggle("config_selected", true);
+            // get logs
+            updateRoomLog();
+            // set up event source again
+            if (typeof(window.evtSource) !== "undefined") {
+                window.evtSource.close();
+            }
+            if (typeof(EventSource) !== "undefined") {
+                window.evtSource = new EventSource(`admin.py?sseupdate=true&room=${window.currentRoom}`);
+                window.evtSource.onopen = function() {
+                    document.body.style.opacity = '1';  // does nothing after page load
+                };
+                window.evtSource.onmessage = function(event) {
+                    var json = JSON.parse(event.data);
+                    console.log(json);
+                    updateRoomLog(json);
+                };
+                window.evtSource.onerror = () => {
+                    if (!window.disableErrors) {
+                        window.evtSource.close();
+                        alert("An error has occurred awaiting updates from the server.  Please refresh the page.");
+                        // console.error(err);
+                    }
+                }
+            } 
+            else {
+                alert("This browser does not support Server-Sent Events, which is required to handle queue functionality.  Use a more modern browser like Firefox or Chrome.");
+            }
+        }
+        async function updateRoomLog(json=null) {
+            var attendance_tbl = document.querySelector("#attendance tbody");
+            attendance_tbl.innerHTML = "";
+            if (json === null) {
+                var r = await fetch(`admin.py?room=${window.currentRoom}&log=true`);
+                json = await r.json();
+                window.currentLog = json;
+            }
+            json.reverse();
+            json.forEach(evt => {
+                var d = `<td>${new Date(parseFloat(evt[0]*1000)).toLocaleString()}</td>`
+                var jl = `<td>${evt[4] == "1" ? "🟢" : "🔴"}</td>`
+                var s = "<tr>" + d + evt.slice(1, -1).map(prop => `<td>${prop}</td>`).join("") + jl + "</tr>";
+                attendance_tbl.innerHTML += s;
+            });
+        }
+        function downloadLog() {
+            var data = window.currentLog.map(r => r.join(",")).join("\n");
+            var blob = new Blob(["UNIX Time,Student,Station,Queue,Added(1)/Removed(0)\n", data], {type: "text/csv"});
+            var dlink = document.createElement('a');
+            dlink.download = `attendance_${window.currentRoom}.csv`;
+            dlink.href = window.URL.createObjectURL(blob);
+            // http://stackoverflow.com/questions/8310657/ddg#35251739
+            dlink.onclick = function(e) {
+                // revokeObjectURL needs a delay to work properly
+                var that = this;
+                setTimeout(function() {
+                    window.URL.revokeObjectURL(that.href);
+                }, 1500);
+            };
+            dlink.click();
+            dlink.remove();
+        }
+        window.onbeforeunload = () => {
+            window.disableErrors = true;
+        }
+        window.onload = async () => {
+            clock();
+            window.roomdata.forEach((room_o, i) => {
+                var btn = `<button class="config_btn config_select" onclick="changeRoom(${i})" id="btn_${room_o["room"]}">${room_o["room"]}</button>`;
+                document.getElementById("roomlist").innerHTML += btn;
+            })
+            changeRoom(0);
+        }
+        function clock() {
+            function IntTwoChars(i) {
+                return `0${i}`.slice(-2);
+            }
+            var time = new Date();
+            document.querySelector("#time").innerHTML = `${IntTwoChars(time.getHours())}:${IntTwoChars(time.getMinutes())}`;
+            setTimeout(clock, 1000);
+        }
+        function toggleTheme() {
+            var mode = document.documentElement.getAttribute("theme") || "";
+            if (mode == "light") {
+                document.documentElement.setAttribute("theme", "dark");
+            } else {
+                document.documentElement.setAttribute("theme", "light");
+            }
+        }
+        function toggleAnyStudent() {
+            var mode = document.documentElement.getAttribute("anystudent") || "";
+            var room = document.getElementsByClassName("config_selected")[0].innerHTML;
+            // send {"anystudent": "false", "room": "roomname"}
+            fetch(`admin.py?room=${room}&anystudent=${mode == "true" ? "false" : "true"}`)
+            .then(r => r.text()).then(t => {
+                if (t != "success") alert(t);
+                else {
+                    console.log(t, mode == "true" ? "false" : "true");
+                    // wait on response before toggling
+                    document.documentElement.setAttribute("anystudent", mode == "true" ? "false" : "true");
+                    window.roomdata.filter(e => e.room == room)[0]["anystudent"] = mode == "true" ? false : true;
+                }
+            }).catch(e => {
+                alert(`Unable to set attribute anystudent for ${room}: ` + e.toString());
+            });
+        }
+        function toggleRoomDisabled() {
+            var mode = document.documentElement.getAttribute("roomdisabled") || "";
+            var room = document.getElementsByClassName("config_selected")[0].innerHTML;
+            // send {"roomdisabled": "false", "room": "roomname"}
+            fetch(`admin.py?room=${room}&roomdisabled=${mode == "true" ? "false" : "true"}`)
+            .then(r => r.text()).then(t => {
+                if (t != "success") alert(t);
+                else {
+                    console.log(t, mode == "true" ? "false" : "true");
+                    // wait on response before toggling
+                    document.documentElement.setAttribute("roomdisabled", mode == "true" ? "false" : "true");
+                    window.roomdata.filter(e => e.room == room)[0]["disabled"] = mode == "true" ? false : true;
+                }
+            }).catch(e => {
+                alert(`Unable to set attribute roomdisabled for ${room}: ` + e.toString());
+            });
+        }
+        function recurseTimer() {
+            var now = Date.now();
+            if (window.timerStopped) return;
+            if (window.timerRunning == false) {
+                window.lastSavedTimestamp = now;
+                return;
+            }
+            // if timer is starting up
+            if (window.timerStart === undefined)
+                window.timerStart = now;
+            if (window.lastSavedTimestamp !== undefined) {
+                window.timerStart += (now - window.lastSavedTimestamp);
+                delete window.lastSavedTimestamp;
+            }
+            else if (window.lastTimestamp === undefined)
+                window.lastTimestamp = now;
+            var elapsed = now - window.lastTimestamp;
+            // if timer is done
+            if ((now - window.timerStart) > window.timerLength) {
+                changeTimer(0);
+                setTimeout(() => {
+                    resetTimer();
+                }, 1000);
+                return;
+            }
+            // otherwise wait (1 second - diff in time from start) to self-correct time
+            else {
+                now = Date.now()
+                var curSecond = parseInt((now - window.timerStart) / 1000);
+                var nextSecond = curSecond + 1;
+                changeTimer(window.timerLength - (curSecond * 1000))
+                window.lastTimestamp = now;
+                setTimeout(recurseTimer, (nextSecond * 1000) - (now - window.timerStart));
+                // setTimeout(recurseTimer, 1000);
+            }
+        }
+        // thanks to Matt for saving my time
+        // https://stackoverflow.com/questions/21294302/converting-milliseconds-to-minutes-and-seconds-with-javascript
+        function msToTime(time) {
+            var d = new Date (1000 * Math.round (time/1000));
+            function pad(i) { return ('0'+i).slice(-2); }
+            return d.getUTCHours() + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+        }
+        function changeTimer(time) {
+            document.querySelector("#timertext").innerHTML = msToTime(time);
+        }
+        window.timerLength = 80 * 60 * 1000;
+        function checkTime(event) {
+            if (event.key == "Enter" || event.type == "blur") {
+                event.currentTarget.innerHTML = event.currentTarget.innerHTML.replace(" ", "");
+                if (event.currentTarget.innerHTML.match(/^(?:([0-9]+):)?(?:([0-9]+):)?([0-9]+)$/)) {
+                    var hms = event.currentTarget.innerHTML.match(/^(?:([0-9]+):)(?:([0-9]+):)([0-9]+)$/);
+                    var ms = event.currentTarget.innerHTML.match(/^(?:([0-9]+):)([0-9]+)$/);
+                    var s = event.currentTarget.innerHTML.match(/^([0-9]+)$/);
+                    if (hms) {
+                        var hrs = hms[1]; var min = hms[2]; var sec = hms[3];
+                        window.timerLength = (hrs * 60 * 60 * 1000) + (min * 60 * 1000) + (sec * 1000);
+                    }
+                    else if (ms) {
+                        var min = ms[1]; var sec = ms[2];
+                        window.timerLength = (min * 60 * 1000) + (sec * 1000);
+                    }
+                    else if (s) {
+                        var sec = s[1];
+                        window.timerLength = sec * 1000;
+                    }
+                }
+                else {
+                    event.currentTarget.innerHTML = "1:20:00";
+                    window.timerLength = 80 * 60 * 1000;
+                }
+                resetTimer();
+                event.currentTarget.blur();
+            }
+        }
+    </script>
+</body>
+<!-- Designed and deployed by Niraj Menon, 2022. -->
+</html>

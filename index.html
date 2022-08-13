@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF-8">
+    <title>LabUtils</title>
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <nav>
+        <div id="navside1"><p id="time">Date/time here</p></div>
+        <div id="navcenter">
+            <p>labutils</p>
+            <p style="font-size: calc(0.5vw + 1.25vh);">Section Information Here</p>
+        </div>
+        <div id="navside2">
+            <div>
+                <span class="switchCylinder" role="img" aria-label="theme_switch" onclick="toggleTheme()">
+                    <span class="switchCircle" id="themeSwitchCircle"></span>
+                </span>
+            </div>
+            <div>
+                <span class="switchCylinder" role="img" aria-label="util_switch" onclick="toggleUtil()">
+                    <span class="switchCircle" id="utilSwitchCircle"></span>
+                </span>
+            </div>
+        </div>
+    </nav>
+    <div class="container" id="queues"></div>
+    <div class="container" id="timer">
+        <div id="innertimer">
+            <h3 id="timertext" contenteditable onblur="checkTime(event)" onkeydown="checkTime(event)">1:20:00</h3>
+            <div class="row">
+                <button id="stopstart" onclick="toggleTimer(event)">▶</button>
+                <button id="resettimer" onclick="resetTimer()">
+                    <!-- https://www.flaticon.com/free-icon/refresh_126561?term=repeat&page=1&position=4&page=1&position=4&related_id=126561&origin=tag -->
+                    <svg width="50%" height="50%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+                        viewBox="0 0 489.935 489.935" xml:space="preserve">
+                    <g>
+                        <path d="M278.235,33.267c-116.7,0-211.6,95-211.6,211.7v0.7l-41.9-63.1c-4.1-6.2-12.5-7.9-18.7-3.8c-6.2,4.1-7.9,12.5-3.8,18.7
+                            l60.8,91.5c2.2,3.3,5.7,5.4,9.6,5.9c0.6,0.1,1.1,0.1,1.7,0.1c3.3,0,6.5-1.2,9-3.5l84.5-76.1c5.5-5,6-13.5,1-19.1
+                            c-5-5.5-13.5-6-19.1-1l-56.1,50.7v-1c0-101.9,82.8-184.7,184.6-184.7s184.7,82.8,184.7,184.7s-82.8,184.7-184.6,184.7
+                            c-49.3,0-95.7-19.2-130.5-54.1c-5.3-5.3-13.8-5.3-19.1,0c-5.3,5.3-5.3,13.8,0,19.1c40,40,93.1,62,149.6,62
+                            c116.6,0,211.6-94.9,211.6-211.7S394.935,33.267,278.235,33.267z" stroke-width="0.5" fill="var(--text-color)">
+                    </g>
+                    </svg>
+                </button>
+            </div>
+            <svg width="100%" height="100%" viewbox="0 0 100 100" id="innertimer-border"><circle cy="50" fill="transparent" cx="50" r="49" stroke-width="0.5" stroke="var(--softer-btn-border)"></circle></svg>
+        </div>
+    </div>
+    <script>
+        window.userstation = parseInt("--userstation--");
+        function genQueue(q, text) {
+            var htmlarray = document.querySelector(`#${q}`);
+            var list = Array.from(document.querySelector(`#${q}`).children);
+            // make sure to sort by longest time created!
+            text[q].sort((a, b) => a[1] - b[1]);
+            var actions = syncArr(list.filter(e => !e.classList.contains('waiter-add')).map(e => parseInt(e.children[0].innerHTML)), text[q].map(e => e[0]));
+            actions.forEach(a => {
+                // format of a: ['action', station, (position)]
+                switch(a[0]) {
+                    case "delete":
+                        selectElmByStation(a[1], q) ? selectElmByStation(a[1], q).remove() : null;
+                        break;
+                    case "add":
+                        if (a[1] == window.userstation)
+                            addSelf(q);
+                        else
+                            addToQueue(a[1], q);
+                        break;
+                    case "shift":
+                        htmlarray.insertBefore(selectElmByStation(a[1], q), list[a[2]]);
+                        break;
+                }
+            });
+            // if a TA overrides visibility and both the waiter-add/is-self buttons are removed
+            // then assume that student is no longer in queue and we can add waiter-add again
+            if (list.filter(e => e.classList.contains('waiter-add') || e.classList.contains('is-self')).length == 0) {
+                var html = `<div class="waiter waiter-add" onclick="addBtnHandler(event, '${q}')"><p class="station_text">+</p></div>`;
+                var added = new DOMParser().parseFromString(html, 'text/html').body.children[0];
+                document.querySelector(`#${q}`).appendChild(added);
+            }
+            // now sync up time
+            applyTime(q, text);
+        }
+        function applyTime(q, queues) {
+            var list = Array.from(document.querySelector("#" + q).children);
+            queues[q].forEach(a => {
+                var elm = list.filter(e => parseInt(e.children[0].innerHTML) == a[0])[0];
+                var now = Date.now();
+                var then = new Date(parseFloat(a[1]));
+                var minute = parseInt((now - (then*1000)) / (60 * 1000));
+                var max = 5;
+                var maxopacity = 0.7;
+                elm.style["background-color"] = `var(--waiter-bg-${minute <= max ? minute : max})`;
+                elm.children[1].innerHTML = `${minute < 1 ? "&lt;1" : minute} min`;
+            });
+        }
+        window.onbeforeunload = () => {
+            window.disableErrors = true;
+        }
+        window.onload = async () => {
+            clock();
+            var response = await fetch('queue.py?firsttime=true', { headers: { 'Content-Type': 'application/json' } });
+            if (response.status == 200) {
+                var text = await response.json();
+                if ('status' in text && text['status'] == 'failure') {
+                    alert("Error loading page: " + text['reason']);
+                    return;
+                }
+                console.log("onload", text);
+                var queues = Object.keys(text);
+                queues.sort((a,b) => a.localeCompare(b));
+                queues.forEach(q => {
+                    addQueue(q);
+                    genQueue(q, text);
+                });
+                if (typeof(EventSource) !== "undefined") {
+                    window.evtSource = new EventSource("queue.py?sseupdate=true");
+                    window.evtSource.onopen = function() {
+                        document.body.style.opacity = '1';
+                    };
+                    window.evtSource.onmessage = function(event) {
+                        var json = JSON.parse(event.data);
+                        console.log("response: ", json);
+                        Object.keys(json).forEach(q => genQueue(q, json));
+                        window.disableOperations = false;
+                    };
+                    window.evtSource.onerror = () => {
+                        if (!window.disableErrors) {
+                            window.evtSource.close();
+                            alert("An error has occurred awaiting updates from the server.  Please refresh the page.");
+                        }
+                    }
+                } 
+                else {
+                    alert("This browser does not support Server-Sent Events, which is required to handle queue functionality.  Use a more modern browser like Firefox or Chrome.");
+                }
+            }
+            else {
+                alert("An error occurred trying to get queue data on page load.  Refresh the page.");
+            }
+        }
+        function syncArr(_old, _new) {
+            var actions = [];
+            var diff = _new.filter(x => !_old.includes(x));
+            var del = _old.filter(x => !_new.includes(x));
+            del.forEach(i => {
+                actions.push(['delete', i]);
+                _old = _old.filter(x => x != i);
+            });
+            diff.forEach(i => {
+                actions.push(['add', i]);
+                _old.push(i);
+            });
+            _new.forEach((e,i) => {
+                if (_old.indexOf(e) != i) {
+                    actions.push(['shift', e, i]);
+                }
+            })
+            return actions;
+        }
+        function selectElmByStation(station, queue) {
+            var list = Array.from(document.querySelector("#" + queue).children).filter(e => parseInt(e.children[0].innerHTML) == station);
+            return list.length > 0 ? list[0] : null;
+        }
+        async function watchForChanges() {
+            try {
+                var response = await fetch('queue.py?update=true', { headers: { 'Content-Type': 'application/json' } });
+                if (response.status == 200 || response.status == 408) {
+                    var text = await response.json();
+                    console.log("response: ", text);
+                    Object.keys(text).forEach(q => genQueue(q, text));
+                    window.disableOperations = false;
+                    await watchForChanges();
+                }
+                else {
+                    alert("Error in response: check console for logs.")
+                    console.log(response.status);
+                    console.log(response);
+                }
+            }
+            catch(err) {
+                console.log(err)
+            }
+        }
+        function clock() {
+            function IntTwoChars(i) {
+                return `0${i}`.slice(-2);
+            }
+            var time = new Date();
+            document.querySelector("#time").innerHTML = `${IntTwoChars(time.getHours())}:${IntTwoChars(time.getMinutes())}`;
+            setTimeout(clock, 1000);
+        }
+        function toggleTheme() {
+            var mode = document.documentElement.getAttribute("theme") || "";
+            if (mode == "light") {
+                document.documentElement.setAttribute("theme", "dark");
+            } else {
+                document.documentElement.setAttribute("theme", "light");
+            }
+        }
+        function toggleUtil() {
+            var mode = document.documentElement.getAttribute("util") || "";
+            if (mode == "timer") {
+                document.documentElement.setAttribute("util", "queues");
+            } else {
+                document.documentElement.setAttribute("util", "timer");
+            }
+        }
+        function recurseTimer() {
+            var now = Date.now();
+            if (window.timerStopped) return;
+            if (window.timerRunning == false) {
+                window.lastSavedTimestamp = now;
+                return;
+            }
+            // if timer is starting up
+            if (window.timerStart === undefined)
+                window.timerStart = now;
+            if (window.lastSavedTimestamp !== undefined) {
+                window.timerStart += (now - window.lastSavedTimestamp);
+                delete window.lastSavedTimestamp;
+            }
+            else if (window.lastTimestamp === undefined)
+                window.lastTimestamp = now;
+            var elapsed = now - window.lastTimestamp;
+            // if timer is done
+            if ((now - window.timerStart) > window.timerLength) {
+                changeTimer(0);
+                setTimeout(() => {
+                    resetTimer();
+                }, 1000);
+                return;
+            }
+            // otherwise wait (1 second - diff in time from start) to self-correct time
+            else {
+                now = Date.now()
+                var curSecond = parseInt((now - window.timerStart) / 1000);
+                var nextSecond = curSecond + 1;
+                changeTimer(window.timerLength - (curSecond * 1000))
+                window.lastTimestamp = now;
+                setTimeout(recurseTimer, (nextSecond * 1000) - (now - window.timerStart));
+                // setTimeout(recurseTimer, 1000);
+            }
+        }
+        // thanks to Matt for saving my time
+        // https://stackoverflow.com/questions/21294302/converting-milliseconds-to-minutes-and-seconds-with-javascript
+        function msToTime(time) {
+            var d = new Date (1000 * Math.round (time/1000));
+            function pad(i) { return ('0'+i).slice(-2); }
+            return d.getUTCHours() + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+        }
+        function changeTimer(time) {
+            document.querySelector("#timertext").innerHTML = msToTime(time);
+        }
+        window.timerLength = 80 * 60 * 1000;
+        function toggleTimer(event) {
+            var border = event.currentTarget.parentNode.parentNode.querySelector('#innertimer-border');
+            if (event.currentTarget.innerHTML == "▶") {
+                border.classList.add('innertimer-border-active');
+                event.currentTarget.innerHTML = "⏸";
+                window.timerRunning = true;
+                window.timerStopped = false;
+                recurseTimer();
+            }
+            else if (event.currentTarget.innerHTML == "⏸") {
+                border.classList.remove('innertimer-border-active');
+                window.timerRunning = false;
+                event.currentTarget.innerHTML = "▶";
+            }
+        }
+        function resetTimer() {
+            var border = document.querySelector('#innertimer-border');
+            border.classList.remove('innertimer-border-active');
+            window.timerStopped = true;
+            window.timerRunning = false;
+            document.querySelector('#stopstart').innerHTML = "▶";
+            document.querySelector("#timertext").innerHTML = msToTime(window.timerLength);
+            delete window.timerStart;
+            delete window.lastSavedTimestamp;
+            delete window.lastTimestamp;
+        }
+        function checkTime(event) {
+            if (event.key == "Enter" || event.type == "blur") {
+                event.currentTarget.innerHTML = event.currentTarget.innerHTML.replace(" ", "");
+                if (event.currentTarget.innerHTML.match(/^(?:([0-9]+):)?(?:([0-9]+):)?([0-9]+)$/)) {
+                    var hms = event.currentTarget.innerHTML.match(/^(?:([0-9]+):)(?:([0-9]+):)([0-9]+)$/);
+                    var ms = event.currentTarget.innerHTML.match(/^(?:([0-9]+):)([0-9]+)$/);
+                    var s = event.currentTarget.innerHTML.match(/^([0-9]+)$/);
+                    if (hms) {
+                        var hrs = hms[1]; var min = hms[2]; var sec = hms[3];
+                        window.timerLength = (hrs * 60 * 60 * 1000) + (min * 60 * 1000) + (sec * 1000);
+                    }
+                    else if (ms) {
+                        var min = ms[1]; var sec = ms[2];
+                        window.timerLength = (min * 60 * 1000) + (sec * 1000);
+                    }
+                    else if (s) {
+                        var sec = s[1];
+                        window.timerLength = sec * 1000;
+                    }
+                }
+                else {
+                    event.currentTarget.innerHTML = "1:20:00";
+                    window.timerLength = 80 * 60 * 1000;
+                }
+                resetTimer();
+                event.currentTarget.blur();
+            }
+        }
+        function addSelf(queue) {
+            var list = Array.from(document.querySelector(`#${queue}`).children).filter(e => e.classList.contains('waiter-add'));
+            if (list.length > 0) {
+                list[0].remove();
+            }
+            var html = `<div class="waiter is-self" onclick="addBtnHandler(event, '${queue}')">
+                            <p class="station_text">${window.userstation}</p>
+                            <p class="time_text">&lt;1 min</p>
+                        </div>`;
+            var added = new DOMParser().parseFromString(html, 'text/html').body.children[0];
+            document.querySelector(`#${queue}`).appendChild(added);
+        }
+        function delSelf(queue) {
+            var list = Array.from(document.querySelector(`#${queue}`).children).filter(e => e.classList.contains('is-self'));
+            if (list.length > 0) {
+                list[0].remove();
+            }
+            var html = `<div class="waiter waiter-add" onclick="addBtnHandler(event, '${queue}')">
+                            <p class="station_text">+</p>
+                        </div>`;
+            var added = new DOMParser().parseFromString(html, 'text/html').body.children[0];
+            document.querySelector(`#${queue}`).appendChild(added);
+        }
+        function performOp(action, queue) {
+            try {
+                fetch(`queue.py/?action=${action}&queue=${queue}`);
+                var qlist = document.querySelector(`#${queue}`).children;
+                var added = qlist[qlist.length - 1];
+                if (action == "add") {
+                    addSelf(queue);
+                }
+                else if (action == "del") {
+                    delSelf(queue);
+                }
+            }
+            catch(err) {
+                console.log(`Error occurred while performing ${action} on ${queue} queue.`);
+                console.error(err);
+            }
+        }
+        function addToQueue(station, queue) {
+            var list = document.querySelector(`#${queue}`);
+            // do not add duplicates!
+            if (Array.from(list.children).map(e => parseInt(e.children[0].innerHTML)).includes(station)) {
+                return;
+            }
+            var time = "&lt;1";
+            var parser = new DOMParser();
+            var newhtml = parser.parseFromString(`<div class="waiter"><p class="station_text">${station}</p><p class="time_text">${time} min</p></div>`, 'text/html');
+            var elm = newhtml.body.children[0];
+            // has our own entry already been added?  Then add the incoming entry at the end of the list.
+            if (Array.from(list.children).filter(e => e.classList.contains("waiter-add")).length > 0)
+                list.insertBefore(elm, list.children[list.children.length - 1]);
+            else
+                list.insertBefore(elm, null);
+        }
+        function addBtnHandler(event, queue) {
+            if (window.disableOperations) return;
+            window.disableOperations = true;
+            if (event.currentTarget.classList.contains("waiter-add")) {
+                // then we're adding a new one
+                performOp('add', queue);
+            }
+            else if (event.currentTarget.classList.contains("is-self")) {
+                // then we're removing an existing one
+                performOp('del', queue);
+            }
+        }
+        function addQueue(queue) {
+            var parser = new DOMParser();
+            var newhtml = parser.parseFromString(`
+                <div class="queuetop">
+                    <p class="queuetitle">${queue}</p>
+                    <div id="${queue}" class="queue">
+                        <div class="waiter waiter-add" onclick="addBtnHandler(event, '${queue}')"><p class="station_text">+</p></div>
+                    </div>
+                </div>`, 'text/html');
+            var elm = newhtml.body.children[0];
+            document.querySelector(`#queues`).appendChild(elm);
+        }
+    </script>
+</body>
+<!-- Designed and deployed by Niraj Menon, 2022. -->
+</html>
