@@ -23,7 +23,10 @@ configs = [x for x in os.listdir(private) if x.endswith("json")]
 raw_configs = []
 config_json = None
 for c in configs:
-    data = load(open(private + c))
+    try:
+        data = load(open(private + c))
+    except:
+        raise Exception("Error parsing JSON file.  Check for syntax errors or extraneous commas.")
     raw_configs.append(data)
     if ip in data["ip_to_station"]:
         config_json = data
@@ -35,7 +38,6 @@ sections = config_json["sections"]
 ip_to_station = config_json["ip_to_station"]
 room = config_json["room"]
 coursename = config_json["coursename"]
-
 anystudent = config_json["anystudent"]
 roomdisabled = config_json["disabled"]
 
