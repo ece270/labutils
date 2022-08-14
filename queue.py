@@ -133,8 +133,8 @@ def handler(req):
             return apache.HTTP_FORBIDDEN
         
         # perform actions based on whether adding/deleting
-        will_add = query.get('action', None) == 'add' and 0 in [x[1] for x in db_queue if x[0] == station] # and should not be currently visible
-        will_del = query.get('action', None) == 'del' and 1 in [x[1] for x in db_queue if x[0] == station] # and should be currently visible
+        will_add = query.get('action', None) == 'add' and 0 in [x[1] for x in db_queue if x[0] == int(station)] # and should not be currently visible
+        will_del = query.get('action', None) == 'del' and 1 in [x[1] for x in db_queue if x[0] == int(station)] # and should be currently visible
         # only make changes to database if changes are to be made
         if will_add or will_del:
             try:

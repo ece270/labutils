@@ -18,8 +18,7 @@ try:
     doexec(private + "config.py")
 except Exception as e:
     print("Content-Type: text/plain\r\n")
-    # print(private + "config.py")
-    print(str(e))
+    print("Error in config: " + str(e))
     exit(0)
 
 # enables unicode printing
