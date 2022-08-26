@@ -6,7 +6,14 @@ IP-to-station mappings, and section information.
 This script will first determine which config 
 to pull based on who is asking.  The global 
 variable IP will be defined by the calling 
-script, which will 
+script, which will determine which room to use 
+(since the IP should belong to a lab machine, 
+which should be specified in the JSON file for 
+its room) and which queue to display as a result.
+The rest of the information in the config is 
+passed to the calling script as well as different 
+variables (room disabled boolean, any student can 
+join boolean, ip-to-station mapping, etc.)
 """
 
 if "ip" not in locals():
@@ -44,7 +51,7 @@ roomdisabled = config_json["disabled"]
 queue_db = private + room + '.db'
 
 if roomdisabled:
-    raise Exception("No machines from this room are permitted to use the lab queue.")
+    raise Exception("The queue has been disabled for this room.  Send an email to course staff if this is an error.")
 
 def getstation(ip):
     global station
