@@ -162,7 +162,7 @@ def handler(req):
     # 
     elif 'firsttime' in query:
         curtime = time()*1000
-        # long line that checks if a station number is exists in any of the queues
+        # long line that checks if a station number is in any of the queues
         station_in_queues = reduce(lambda a, b: a + b, [list(cur.execute("SELECT station FROM %s WHERE station = (?)" % q, (station,))) for q in queues])
         if len(station_in_queues) == 0:
             for q in queues:
