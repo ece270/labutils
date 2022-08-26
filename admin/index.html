@@ -64,7 +64,7 @@
                 <button class="config_btn" style="width: 100%; height: 100%" onclick="downloadLog()">Download attendance log</button>
             </div>
             <div class="config">
-                <button class="config_btn" style="width: 100%; height: 100%" onclick="clearLog()">Clear attendance log</button>
+                <button class="config_btn" style="width: 100%; height: 100%" onclick="clearLog()">Backup and clear attendance log</button>
             </div>
         </div>
         <div class="container adminpanel">
@@ -93,7 +93,7 @@
             var r = await fetch(`admin.py?room=${window.currentRoom}&clearlog=true`);
             var t = await r.text();
             if (t == "cleared")
-                alert("Log has been cleared.");
+                alert("Log has been backed up and cleared.");
             else
                 alert("An error has occurred.  Script output: " + t);
         }

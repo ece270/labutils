@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-import os, sys
+import os, sys, bz2
 from mod_python import apache, util
 from json import load, dump, dumps
 from time import time, sleep
@@ -90,6 +90,23 @@ def handler(req):
         req.send_http_header()
         # should be a real room
         if os.path.exists(private + room + ".db"):
+            # back up existing log
+            if os.path.exists(private + room + ".log"):
+                i = 0
+                LIM = 20
+                while i < LIM and os.path.exists(private + room + ".log.{}.bz2".format(i)):
+                    i += 1
+                # limit backups
+                if i == LIM:
+                    os.remove(private + room + ".log.{}.bz2".format(i-1))
+                    i -= 1
+                while i > 0:
+                    os.rename(private + room + ".log.{}.bz2".format(i-1), private + room + ".log.{}.bz2".format(i))
+                    i -= 1
+                # https://towardsdatascience.com/all-the-ways-to-compress-and-archive-files-in-python-e8076ccedb4b
+                with open(private + room + ".log", mode="rb") as fin, bz2.BZ2File(private + room + ".log.0.bz2", "wb") as fout:
+                    fout.write(fin.read())
+            # now overwrite the log
             with open(private + room + ".log", "w+") as f:
                 data = f.write("")
             req.write("cleared")
