@@ -34,7 +34,7 @@ def handler(req):
                 pass
 
     # now check our variables
-    accepted_keys = ['sseupdate', 'roomdisabled', 'anystudent', 'clearlog', 'log']
+    accepted_keys = ['sseupdate', 'roomdisabled', 'anystudent', 'clearlog', 'log', 'fulllog']
     querychecked = any([x in query for x in accepted_keys]) and 'room' in query
     
     # this section handles disabling a room
@@ -82,7 +82,16 @@ def handler(req):
                 data = f.write("")
         req.content_type = "application/json"
         req.send_http_header()
-        req.write(dumps(getdblog(room)[:50]))
+        req.write(dumps(getdblog(room)[-50:]))
+        return apache.OK
+    elif querychecked and 'fulllog' in query:
+        room = query.get("room", None)
+        if not os.path.exists(private + room + ".log"):
+            with open(private + room + ".log", "w+") as f:
+                data = f.write("")
+        req.content_type = "application/json"
+        req.send_http_header()
+        req.write(dumps(getdblog(room)))
         return apache.OK
     elif querychecked and 'clearlog' in query:
         room = query.get("room", None)
@@ -135,7 +144,7 @@ def handler(req):
                 notifier.read_events()
                 notifier.process_events()
             try:
-                req.write("data: %s\n\r" % dumps(getdblog(room)))
+                req.write("data: %s\n\r" % dumps(getdblog(room)[-50:]))
             except:
                 wm.close()
                 try:

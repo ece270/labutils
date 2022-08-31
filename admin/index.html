@@ -166,8 +166,10 @@
                 attendance_tbl.innerHTML += s;
             });
         }
-        function downloadLog() {
-            var data = window.currentLog.map(r => r.join(",")).join("\n");
+        async function downloadLog() {
+            var r = await fetch(`admin.py?room=${window.currentRoom}&fulllog=true`);
+            json = await r.json();
+            var data = json.map(r => r.join(",")).join("\n");
             var blob = new Blob(["UNIX Time,Student,Station,Queue,Added(1)/Removed(0)\n", data], {type: "text/csv"});
             var dlink = document.createElement('a');
             dlink.download = `attendance_${window.currentRoom}.csv`;
