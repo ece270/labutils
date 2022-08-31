@@ -82,7 +82,7 @@ def handler(req):
                 data = f.write("")
         req.content_type = "application/json"
         req.send_http_header()
-        req.write(dumps(getdblog(room)))
+        req.write(dumps(getdblog(room)[:50]))
         return apache.OK
     elif querychecked and 'clearlog' in query:
         room = query.get("room", None)
