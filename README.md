@@ -62,6 +62,8 @@ Once set up, navigate to the labutils page from one of the lab machines that you
 
 Next, add "/admin" at the end of the labutils URL.  (Ensure that only you are able to access it!)  You should see the log with you adding/removing yourself from the queues.  Test the Download and "Backup and Clear" log buttons on the page to see that they are working as well.
 
-Maintenence: 
+After that, try a few more lab machines, and you should be good to go.
 
-Not much maintenence is required except occassionally clearing the log at the end of each week to ensure the log files do not get big via the admin page.  By the time you make 20 backups, the oldest backup is then deleted to make space for the newest one.  
+## Maintenence
+
+Not much maintenence is required except occassionally clearing the log at the end of each week via the admin page to ensure the log files do not get too big.  By the time you make 20 backups, the oldest backup is then deleted to make space for the newest one.  
