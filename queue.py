@@ -135,24 +135,40 @@ def handler(req):
         # perform actions based on whether adding/deleting
         will_add = query.get('action', None) == 'add' and 0 in [x[1] for x in db_queue if x[0] == int(station)] # and should not be currently visible
         will_del = query.get('action', None) == 'del' and 1 in [x[1] for x in db_queue if x[0] == int(station)] # and should be currently visible
+        has_station = query.get('station', None) != None and query.get('station', None).isdigit() and int(query.get('station', None)) in [x[0] for x in db_queue]
         # only make changes to database if changes are to be made
-        if will_add or will_del:
+        if will_add or will_del and not has_station:
             try:
                 with conn:
                     if will_add:
                         cur.execute("UPDATE %s SET visible = 1, time = (?) WHERE station = (?)" % queue, (time(), station))
+                        conn.commit()
                         lock = acquireLock(private + room + ".log")
                         with open(private + room + ".log", "a+") as f:
                             f.write(",".join([str(time()), user, str(station), queue, "1"]) + "\n")
                         releaseLock(lock)
                     else:
                         cur.execute("UPDATE %s SET visible = 0 WHERE station = (?)" % queue, (station,))
+                        conn.commit()
                         lock = acquireLock(private + room + ".log")
                         with open(private + room + ".log", "a+") as f:
                             f.write(",".join([str(time()), user, str(station), queue, "0"]) + "\n")
                         releaseLock(lock)
             except sqlite3.IntegrityError: 
                 req.log_error("IntegrityError: Error updating station %d for user %s in queue %s from %s\r\n" % (station, user, queue, ip))
+                conn.close()
+                return apache.HTTP_INTERNAL_SERVER_ERROR
+        elif has_station and is_staff:  # give staff only del permissions
+            try:
+                stn = unicode(query.get('station', None))
+                cur.execute("UPDATE %s SET visible = 0 WHERE station = (?)" % queue, (stn,))
+                conn.commit()
+                lock = acquireLock(private + room + ".log")
+                with open(private + room + ".log", "a+") as f:
+                    f.write(",".join(["STAFF", str(time()), user, str(stn), queue, "0"]) + "\n")
+                releaseLock(lock)
+            except sqlite3.IntegrityError: 
+                req.log_error("IntegrityError: Error updating station %d for user %s in queue %s from %s\r\n" % (stn, user, queue, ip))
                 conn.close()
                 return apache.HTTP_INTERNAL_SERVER_ERROR
         conn.close()

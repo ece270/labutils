@@ -36,6 +36,9 @@ except:
 # check that we are being opened during a lab section
 section = getactivesection()
 
+# check if user is staff
+is_staff = username in staff
+
 # if section was never set, it means no section is currently running
 if section is None:
     section = "Outside Lab Hours"
@@ -47,5 +50,6 @@ with io.open('index.html', 'r', encoding='utf8') as file:
     data = file.read().replace("Section Information Here", section)
     # fill username
     data = data.replace("--userstation--", str(station))
+    data = data.replace("--is-staff--", "true" if is_staff else "false")
     # send HTML
     print(data)

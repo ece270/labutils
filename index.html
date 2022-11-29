@@ -52,6 +52,7 @@
     </div>
     <script>
         window.userstation = parseInt("--userstation--");
+        window.is_staff = "--is-staff--" == "true" ? true : false;
         function genQueue(q, text) {
             var htmlarray = document.querySelector(`#${q}`);
             var list = Array.from(document.querySelector(`#${q}`).children);
@@ -77,6 +78,7 @@
             });
             // if a TA overrides visibility and both the waiter-add/is-self buttons are removed
             // then assume that student is no longer in queue and we can add waiter-add again
+            list = Array.from(document.querySelector(`#${q}`).children);
             if (list.filter(e => e.classList.contains('waiter-add') || e.classList.contains('is-self')).length == 0) {
                 var html = `<div class="waiter waiter-add" onclick="addBtnHandler(event, '${q}')"><p class="station_text">+</p></div>`;
                 var added = new DOMParser().parseFromString(html, 'text/html').body.children[0];
@@ -334,16 +336,29 @@
             var added = new DOMParser().parseFromString(html, 'text/html').body.children[0];
             document.querySelector(`#${queue}`).appendChild(added);
         }
-        function performOp(action, queue) {
+        function delFromQueueTA(station, queue) {
+            fetch(`queue.py/?action=del&queue=${queue}&station=${station}`);
+            var list = Array.from(document.querySelector(`#${queue}`).children).filter(e => e.classList.contains('waiter') && e.querySelector('.station_text').innerHTML == station);
+            if (list.length > 0) {
+                list[0].remove();
+            }
+        }
+        function performOp(action, queue, station=null) {
             try {
-                fetch(`queue.py/?action=${action}&queue=${queue}`);
-                var qlist = document.querySelector(`#${queue}`).children;
-                var added = qlist[qlist.length - 1];
-                if (action == "add") {
-                    addSelf(queue);
+                if (window.is_staff && station != null) {
+                    if (action == "del")
+                        delFromQueueTA(station, queue);
                 }
-                else if (action == "del") {
-                    delSelf(queue);
+                else {
+                    fetch(`queue.py/?action=${action}&queue=${queue}`);
+                    var qlist = document.querySelector(`#${queue}`).children;
+                    var added = qlist[qlist.length - 1];
+                    if (action == "add") {
+                        addSelf(queue);
+                    }
+                    else if (action == "del") {
+                        delSelf(queue);
+                    }
                 }
             }
             catch(err) {
@@ -359,7 +374,10 @@
             }
             var time = "&lt;1";
             var parser = new DOMParser();
-            var newhtml = parser.parseFromString(`<div class="waiter"><p class="station_text">${station}</p><p class="time_text">${time} min</p></div>`, 'text/html');
+            if (window.is_staff)
+                var newhtml = parser.parseFromString(`<div class="waiter" style="cursor: pointer" onclick="addBtnHandler(event, '${queue}')"><p class="station_text">${station}</p><p class="time_text">${time} min</p></div>`, 'text/html');
+            else
+                var newhtml = parser.parseFromString(`<div class="waiter"><p class="station_text">${station}</p><p class="time_text">${time} min</p></div>`, 'text/html');
             var elm = newhtml.body.children[0];
             // has our own entry already been added?  Then add the incoming entry at the end of the list.
             if (Array.from(list.children).filter(e => e.classList.contains("waiter-add")).length > 0)
@@ -373,6 +391,10 @@
             if (event.currentTarget.classList.contains("waiter-add")) {
                 // then we're adding a new one
                 performOp('add', queue);
+            }
+            else if (window.is_staff && !event.currentTarget.classList.contains("is-self")) {
+                // we are a TA and removing someone else's station, not our own
+                performOp('del', queue, event.currentTarget.querySelector('.station_text').innerHTML);
             }
             else if (event.currentTarget.classList.contains("is-self")) {
                 // then we're removing an existing one
