@@ -38,20 +38,20 @@ for c in configs:
     if ip in data["ip_to_station"]:
         config_json = data
 
+sections = None
 if config_json is None:
-    raise Exception("Your IP is not permitted to access the lab queue.")
-
-sections = config_json["sections"]
-ip_to_station = config_json["ip_to_station"]
-room = config_json["room"]
-coursename = config_json["coursename"]
-anystudent = config_json["anystudent"]
-roomdisabled = config_json["disabled"]
-
-queue_db = private + room + '.db'
-
-if roomdisabled:
-    raise Exception("The queue has been disabled for this room.  Send an email to course staff if this is an error.")
+    if not is_admin:
+        raise Exception("Your IP is not permitted to access the lab queue.")
+else:
+    sections = config_json["sections"]
+    ip_to_station = config_json["ip_to_station"]
+    room = config_json["room"]
+    coursename = config_json["coursename"]
+    anystudent = config_json["anystudent"]
+    roomdisabled = config_json["disabled"]
+    queue_db = private + room + '.db'
+    if roomdisabled:
+        raise Exception("The queue has been disabled for this room.  Send an email to course staff if this is an error.")
 
 def getstation(ip):
     global station
@@ -87,9 +87,12 @@ def isofficehoursweek():
     return week in virtual_lab_weeks
 
 def getactivesection():
-    global sections
+    global sections, is_admin
     if sections is None:
-        raise Exception("JSON file not loaded.")
+        if is_admin:
+            return 'Outside Lab Hours'
+        else:
+            raise Exception("JSON file not loaded.")
     now = datetime.now()
     section = None
     # sectionnum,day,time
