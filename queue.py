@@ -165,7 +165,7 @@ def handler(req):
                 conn.commit()
                 lock = acquireLock(private + room + ".log")
                 with open(private + room + ".log", "a+") as f:
-                    f.write(",".join(["STAFF", str(time()), user, str(stn), queue, "0"]) + "\n")
+                    f.write(",".join([str(time()), user, str(stn), queue, "0"]) + "\n")
                 releaseLock(lock)
             except sqlite3.IntegrityError: 
                 req.log_error("IntegrityError: Error updating station %d for user %s in queue %s from %s\r\n" % (stn, user, queue, ip))

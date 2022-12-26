@@ -9,6 +9,7 @@ from json import load, dumps
 username = os.environ['REMOTE_USER']
 ip = os.environ['REMOTE_ADDR']
 private = os.environ['DOCUMENT_ROOT'] + os.environ["CONTEXT_PREFIX"] + '/private/labutils/'
+is_admin = True
 
 # init all variables
 def doexec(path):
@@ -29,10 +30,7 @@ sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 try:
     station = getstation(os.environ["REMOTE_ADDR"])
 except: 
-    # exception indicates IP does not belong in list
-    print ("Content-Type: text/html\r\n")
-    print ("<h2>Access denied</h2>")
-    exit(0)
+    station = -1
 
 # check that we are being opened during a lab section
 section = getactivesection()

@@ -9,6 +9,7 @@ from json import load
 username = os.environ['REMOTE_USER']
 ip = os.environ['REMOTE_ADDR']
 private = os.environ['DOCUMENT_ROOT'] + os.environ["CONTEXT_PREFIX"] + '/private/labutils/'
+is_admin = False
 
 # init all variables
 def doexec(path):
