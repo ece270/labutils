@@ -33,8 +33,11 @@ def userinsection(user, section):
     # by returning True for all students
     if isofficehoursweek():
         return True
-    sectionnum = int(re.match(r'Section ([0-9]+) - [A-Za-z]+ [^-]+ to .+', section).group(1))
-    return user in section_student[sectionnum]
+    try:
+        sectionnum = int(re.match(r'Section ([0-9]+) - [A-Za-z]+ [^-]+ to .+', section).group(1))
+        return user in section_student[sectionnum]
+    except Exception as e:  # unrecognized section? might be a dev section or some bug, send true to be safe
+        return True
 
 def getqueues():
     conn = sqlite3.connect(queue_db)
@@ -45,6 +48,10 @@ def getqueues():
         names = [row[1] for row in cur.execute('SELECT * FROM sqlite_master') if not (row[1].startswith("_") or row[1].startswith("sqlite"))]
     for n in names:
         queues[n] = list(cur.execute("select distinct {0}.station, {0}.time from {0} join _user where {0}.station == _user.station and {0}.visible == 1 order by {0}.time".format(n)))
+        # for each station in queue, get the username from the _user table
+        for i in range(len(queues[n])):
+            user = cur.execute("select login from _user where station == (?)", (queues[n][i][0],)).fetchone()[0]
+            queues[n][i] = queues[n][i] + (userinsection(user, getactivesection()), )
     conn.close()
     return queues
 

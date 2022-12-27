@@ -472,3 +472,11 @@ hr {
     border-bottom: 1px solid var(--softer-btn-border);
     border-radius: 0;
 }
+.icon {
+    position: absolute;
+    background-color: var(--text-color);
+    border-radius: 100%;
+    width: calc(1vw + 1vh);
+    height: calc(1vw + 1vh);
+    top: 135px;
+}

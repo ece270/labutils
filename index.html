@@ -58,7 +58,7 @@
             var list = Array.from(document.querySelector(`#${q}`).children);
             // make sure to sort by longest time created!
             text[q].sort((a, b) => a[1] - b[1]);
-            var actions = syncArr(list.filter(e => !e.classList.contains('waiter-add')).map(e => parseInt(e.children[0].innerHTML)), text[q].map(e => e[0]));
+            var actions = syncArr(list.filter(e => !e.classList.contains('waiter-add')).map(e => parseInt(e.querySelector(".station_text").innerHTML)), text[q].map(e => e[0]));
             actions.forEach(a => {
                 // format of a: ['action', station, (position)]
                 switch(a[0]) {
@@ -69,7 +69,7 @@
                         if (a[1] == window.userstation)
                             addSelf(q);
                         else
-                            addToQueue(a[1], q);
+                            addToQueue(a[1], false, q);
                         break;
                     case "shift":
                         htmlarray.insertBefore(selectElmByStation(a[1], q), list[a[2]]);
@@ -84,20 +84,24 @@
                 var added = new DOMParser().parseFromString(html, 'text/html').body.children[0];
                 document.querySelector(`#${q}`).appendChild(added);
             }
+            text[q].filter(sd => sd[2]).forEach(sd => {
+                var elm = selectElmByStation(sd[0], q);
+                elm.innerHTML = '<span class="icon"></span>' + elm.innerHTML;
+            })
             // now sync up time
             applyTime(q, text);
         }
         function applyTime(q, queues) {
             var list = Array.from(document.querySelector("#" + q).children);
             queues[q].forEach(a => {
-                var elm = list.filter(e => parseInt(e.children[0].innerHTML) == a[0])[0];
+                var elm = list.filter(e => parseInt(e.querySelector(".station_text").innerHTML) == a[0])[0];
                 var now = Date.now();
                 var then = new Date(parseFloat(a[1]));
                 var minute = parseInt((now - (then*1000)) / (60 * 1000));
                 var max = 5;
                 var maxopacity = 0.7;
                 elm.style["background-color"] = `var(--waiter-bg-${minute <= max ? minute : max})`;
-                elm.children[1].innerHTML = `${minute < 1 ? "&lt;1" : minute} min`;
+                elm.querySelector('.time_text').innerHTML = `${minute < 1 ? "&lt;1" : minute} min`;
             });
         }
         window.onbeforeunload = () => {
@@ -165,7 +169,7 @@
             return actions;
         }
         function selectElmByStation(station, queue) {
-            var list = Array.from(document.querySelector("#" + queue).children).filter(e => parseInt(e.children[0].innerHTML) == station);
+            var list = Array.from(document.querySelector("#" + queue).children).filter(e => parseInt(e.querySelector(".station_text").innerHTML) == station);
             return list.length > 0 ? list[0] : null;
         }
         async function watchForChanges() {
@@ -369,7 +373,7 @@
         function addToQueue(station, queue) {
             var list = document.querySelector(`#${queue}`);
             // do not add duplicates!
-            if (Array.from(list.children).map(e => parseInt(e.children[0].innerHTML)).includes(station)) {
+            if (Array.from(list.children).map(e => parseInt(e.querySelector(".station_text").innerHTML)).includes(station)) {
                 return;
             }
             var time = "&lt;1";
