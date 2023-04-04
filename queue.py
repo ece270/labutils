@@ -186,9 +186,10 @@ def handler(req):
     elif 'firsttime' in query:
         curtime = time()*1000
         # long line that checks if a station number is in any of the queues
-        station_in_queues = reduce(lambda a, b: a + b, [list(cur.execute("SELECT station FROM %s WHERE station = (?)" % q, (station,))) for q in queues])
-        if len(station_in_queues) == 0:
-            for q in queues:
+        # station_in_queues = reduce(lambda a, b: a + b, [list(cur.execute("SELECT station FROM %s WHERE station = (?)" % q, (station,))) for q in queues])
+        station_in_queues = {q: list(cur.execute("SELECT station FROM %s WHERE station = (?)" % q, (station,))) for q in queues}
+        for q in station_in_queues:
+            if len(station_in_queues[q]) == 0:
                 cur.execute("INSERT INTO %s VALUES (?, ?, ?)" % q, (station, 0, curtime))
                 conn.commit()
         # non-destructive add, let user remain in place
